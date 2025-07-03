@@ -1,0 +1,327 @@
+```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>⭐ Weather Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #a0c8ff, #4a90e2);
+      color: #103060;
+      overflow-x: hidden;
+      transition: background 0.5s, color 0.5s;
+      position: relative;
+    }
+
+    body.dark {
+      background: linear-gradient(135deg, #0b1e3d, #061432);
+      color: #a3c9ff;
+    }
+
+    #toggleMode {
+      position: fixed; top: 20px; right: 20px;
+      font-size: 1.5rem; background: none; border: none;
+      cursor: pointer; color: inherit; z-index: 20;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.25);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      margin: 20px auto;
+      max-width: 400px;
+      transition: 0.3s;
+    }
+
+    body.dark .card {
+      background: rgba(40,60,90,0.8);
+    }
+
+    .interactive {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .interactive input, .interactive button {
+      padding: 14px;
+      border: none;
+      border-radius: 999px;
+      font-size: 1rem;
+      outline: none;
+    }
+
+    .interactive input {
+      flex: 1;
+      background: rgba(255,255,255,0.9);
+    }
+
+    body.dark .interactive input {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    .interactive button {
+      background: #5599ff;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    body.dark .interactive button {
+      background: #77aaff;
+    }
+
+    .alerts {
+      background: #ff3c3cdd;
+      color: #fff;
+      border-radius: 8px;
+      padding: 8px;
+      margin-top: 12px;
+      font-weight: bold;
+    }
+
+    body.dark .alerts {
+      background: #ff5858ee;
+    }
+
+    .forecast-section h3 {
+      margin: 30px 0 10px;
+    }
+
+    .forecast-section .card {
+      width: 160px;
+      margin: 10px;
+    }
+
+    .animated-bg, .clouds, .stars, .sparkles {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .star, .sparkle {
+      position: absolute;
+      border-radius: 50%;
+    }
+
+    .sparkle {
+      background: #bbddff;
+      filter: drop-shadow(0 0 4px #88bbff);
+      opacity: 0.8;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .star {
+      background: #fff;
+      width: 6px; height: 6px;
+      animation: twinkle 1.5s infinite alternate;
+    }
+
+    @keyframes twinkle {
+      from { opacity: 0.3; }
+      to { opacity: 0.8; }
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .cloud {
+      position: absolute;
+      background: linear-gradient(135deg, #e0f0ff, #a2c8ff);
+      border-radius: 50%;
+      box-shadow: 60px 0 #cce0ff, 110px 15px #bccfff;
+      opacity: 0.8;
+      animation: drift linear infinite;
+    }
+
+    @keyframes drift {
+      0% { left: -200px; }
+      100% { left: 120vw; }
+    }
+
+    .heart {
+      position: absolute;
+      font-size: 2rem;
+      animation: bounce 2s infinite;
+      filter: drop-shadow(0 0 6px red);
+    }
+
+    @keyframes bounce {
+      0%,100% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+    }
+  </style>
+</head>
+<body>
+  <button id="toggleMode">🌗MODE</button>
+
+  <!-- Search Bar -->
+  <div class="card">
+    <div class="interactive">
+      <input id="cityInput" type="text" placeholder="🌆 Enter city…" />
+      <button id="getWeatherBtn">Get Weather</button>
+    </div>
+    <div id="weatherResult">Type a city & click to fetch live weather!</div>
+  </div>
+
+  <!-- Forecasts -->
+  <div class="container text-center forecast-section">
+    <h3>🌤️ Hourly Forecast</h3>
+    <div class="d-flex flex-wrap justify-content-center" id="hourlyForecast"></div>
+
+    <h3>📆 Weekly Forecast</h3>
+    <div class="d-flex flex-wrap justify-content-center" id="weeklyForecast"></div>
+  </div>
+
+  <!-- Animated Background Layers -->
+  <div class="sparkles"></div>
+  <div class="stars"></div>
+  <div class="clouds"></div>
+  <div class="heart" style="bottom: 20px; right: 20px;">❤️</div>
+  <div class="heart" style="bottom: 60px; right: 60px;">❤️</div>
+
+  <script>
+    const API_KEY = "3cfe1f70a8e354f348ac749e705282f7";
+
+    document.getElementById("toggleMode").onclick = () =>
+      document.body.classList.toggle("dark");
+
+    document.getElementById("getWeatherBtn").onclick = async () => {
+      const city = document.getElementById("cityInput").value.trim();
+      const resultDiv = document.getElementById("weatherResult");
+
+      if (!city) {
+        resultDiv.innerHTML = "⚠️ Please enter a city name.";
+        return;
+      }
+
+      resultDiv.innerHTML = "🔄 Fetching weather...";
+
+      try {
+        const resCurrent = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`);
+        if (!resCurrent.ok) throw new Error("City not found");
+        const data = await resCurrent.json();
+
+        const name = data.name;
+        const temp = Math.round(data.main.temp);
+        const humidity = data.main.humidity;
+        const condition = data.weather[0].main;
+        const emoji = getWeatherEmoji(condition);
+
+        resultDiv.innerHTML = `
+          <div class="card">
+            <h2>📍 ${name} • ${temp}°C ${emoji}</h2>
+            <div>Humidity: ${humidity}%</div>
+            <div class="alerts">🌤️ Condition: ${condition}</div>
+          </div>
+        `;
+
+        // Forecast
+        const resForecast = await fetch(`https://api.openweathermap.org/data/2.5/forecast?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`);
+        const forecast = await resForecast.json();
+
+        showHourly(forecast.list);
+        showWeekly(forecast.list);
+      } catch (err) {
+        resultDiv.innerHTML = `❌ ${err.message}`;
+      }
+    };
+
+    function getWeatherEmoji(condition) {
+      const c = condition.toLowerCase();
+      if (c.includes("clear")) return "☀️";
+      if (c.includes("cloud")) return "☁️";
+      if (c.includes("rain")) return "🌧️";
+      if (c.includes("storm")) return "⛈️";
+      if (c.includes("snow")) return "❄️";
+      if (c.includes("mist") || c.includes("fog")) return "🌫️";
+      return "🌡️";
+    }
+
+    function showHourly(list) {
+      const container = document.getElementById("hourlyForecast");
+      container.innerHTML = "";
+      list.slice(0, 6).forEach(item => {
+        const time = new Date(item.dt_txt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+        container.innerHTML += `
+          <div class="card">
+            <div><strong>${time}</strong></div>
+            <img src="http://openweathermap.org/img/wn/${item.weather[0].icon}.png" />
+            <div>${item.main.temp}°C</div>
+          </div>
+        `;
+      });
+    }
+
+    function showWeekly(list) {
+      const container = document.getElementById("weeklyForecast");
+      container.innerHTML = "";
+      const daily = {};
+      list.forEach(item => {
+        const date = item.dt_txt.split(" ")[0];
+        if (!daily[date]) daily[date] = item;
+      });
+
+      Object.values(daily).slice(0, 5).forEach(item => {
+        const date = new Date(item.dt_txt).toLocaleDateString();
+        container.innerHTML += `
+          <div class="card">
+            <div><strong>${date}</strong></div>
+            <img src="http://openweathermap.org/img/wn/${item.weather[0].icon}.png" />
+            <div>${item.main.temp}°C</div>
+          </div>
+        `;
+      });
+    }
+
+    // Sparkles
+    const sparkles = document.querySelector('.sparkles');
+    for (let i = 0; i < 20; i++) {
+      const el = document.createElement('div');
+      el.className = 'sparkle';
+      el.style.width = el.style.height = `${Math.random() * 6 + 4}px`;
+      el.style.top = `${Math.random() * 100}vh`;
+      el.style.left = `${Math.random() * 100}vw`;
+      sparkles.appendChild(el);
+    }
+
+    // Stars
+    const stars = document.querySelector('.stars');
+    for (let i = 0; i < 40; i++) {
+      const el = document.createElement('div');
+      el.className = 'star';
+      el.style.top = `${Math.random() * 100}vh`;
+      el.style.left = `${Math.random() * 100}vw`;
+      stars.appendChild(el);
+    }
+
+    // Clouds
+    const clouds = document.querySelector('.clouds');
+    for (let i = 0; i < 3; i++) {
+      const cloud = document.createElement('div');
+      cloud.className = 'cloud';
+      const size = 120 + Math.random() * 120;
+      cloud.style.width = `${size}px`;
+      cloud.style.height = `${size * 0.6}px`;
+      cloud.style.top = `${i * 80 + 30}px`;
+      cloud.style.animationDuration = `${40 + i * 10}s`;
+      clouds.appendChild(cloud);
+    }
+  </script>
+</body>
+</html>
+
+```
